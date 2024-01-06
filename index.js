@@ -2,7 +2,7 @@ const express = require('express')
 const http = require('http')
 const { Server } = require('socket.io')
 const app = express()
-const path = require('path')
+const SocketIOFile = require('socket.io-file')
 
 const server = http.createServer(app)
 const io = new Server(server, {
@@ -11,49 +11,50 @@ const io = new Server(server, {
 		methods: ['GET', 'POST'],
 	},
 })
-app.use(express.static(path.join(__dirname, '../client/public')))
-app.get('/', (req, res) => {
-	res.sendFile(path.resolve(__dirname, '../client/public/index.html'))
-})
 
 let users_arr = []
+let messageHistory = []
 
 io.on('connection', (socket) => {
 	console.log('connect')
 
+	socket.emit('message history', messageHistory)
+
 	socket.on('login', (data) => {
-		console.log('login', data)
-		const found = users_arr.find((fio) => {
-			return fio === data
-		})
+		const found = users_arr.find(
+			(fio) => fio.toLowerCase() === data.toLowerCase()
+		)
 		if (!found) {
 			users_arr.push(data)
-			socket.nick = data
-			io.sockets.emit('login', { status: 'OK', data })
+			console.log('users_arr', users_arr)
+			socket.username = data
+			io.sockets.emit('login', { status: 'OK', name: data })
 			io.sockets.emit('users_arr', { users_arr })
 		} else {
 			io.sockets.emit('login', { status: 'FAILED' })
-			console.log(io.sockets.status)
 		}
 	})
 
 	socket.on('message', (data) => {
-		console.log('message')
+		const currentDate = new Date()
+		function addLeadingZero(value) {
+			return value < 10 ? `0${value}` : value
+		}
 
-		io.sockets.emit('new message', {
-			message: data,
-			time: new Date(),
-			nick: socket.nick,
-		})
+		const hours = addLeadingZero(currentDate.getHours())
+		const minutes = addLeadingZero(currentDate.getMinutes())
+		const newMess = {
+			message: data.mess,
+			time: `${hours}:${minutes}`,
+			nick: data.name,
+		}
+		messageHistory.push(newMess)
+		io.sockets.emit('new message', newMess)
 	})
 
-	socket.on('disconnect', (data) => {
-		console.log('disconneckt')
-		for (let index = 0; index < users_arr.length; index++) {
-			if (users_arr[index] === socket.nick) {
-				users_arr.splice(index, 1)
-			}
-		}
+	socket.on('disconnect', () => {
+		console.log('disconnected', socket.username)
+		users_arr = users_arr.filter((user) => user !== socket.username)
 		io.sockets.emit('users_arr', { users_arr })
 	})
 })
