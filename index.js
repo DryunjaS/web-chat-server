@@ -16,6 +16,8 @@ const io = new Server(server, {
 
 let users_arr = []
 let messageHistory = []
+let fileHistory = [] // Создаем массив для хранения истории файлов
+
 const uploadPath = path.join(__dirname, 'uploads')
 
 if (!fs.existsSync(uploadPath)) {
@@ -38,6 +40,7 @@ io.on('connection', (socket) => {
 	console.log('connect')
 
 	socket.emit('message history', messageHistory)
+	socket.emit('file-history', fileHistory)
 
 	socket.on('login', (data) => {
 		const found = users_arr.find(
@@ -83,7 +86,7 @@ io.on('connection', (socket) => {
 				downloadLink: `/uploads/${fileName}`,
 				nick,
 			}
-
+			fileHistory.push(fileDataWithSender)
 			io.emit('file-uploaded', fileDataWithSender)
 		})
 
