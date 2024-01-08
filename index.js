@@ -4,10 +4,10 @@ const { Server } = require('socket.io')
 const app = express()
 const fs = require('fs')
 const path = require('path')
-const mime = require('mime-types')
 const server = http.createServer(app)
 
 const io = new Server(server, {
+	maxHttpBufferSize: 1e8,
 	cors: {
 		origin: 'http://localhost:3000',
 		methods: ['GET', 'POST'],
@@ -23,19 +23,17 @@ if (!fs.existsSync(uploadPath)) {
 }
 
 app.use('/uploads', express.static(uploadPath)) // Serve uploaded files
-
 app.get('/uploads/:fileName', (req, res) => {
 	const fileName = req.params.fileName
 	const filePath = path.join(uploadPath, fileName)
 
-	// Проверяем, существует ли файл
 	if (fs.existsSync(filePath)) {
-		// Отправляем файл на клиент
 		res.sendFile(filePath)
 	} else {
 		res.status(404).send('File not found')
 	}
 })
+
 io.on('connection', (socket) => {
 	console.log('connect')
 
@@ -72,30 +70,30 @@ io.on('connection', (socket) => {
 		messageHistory.push(newMess)
 		io.sockets.emit('new message', newMess)
 	})
-	socket.on('file-upload', ({ fileData, fileName, nick }) => {
+	socket.on('file-upload', ({ fileData, fileType, fileName, nick }) => {
 		const filePath = path.join(uploadPath, fileName)
+		const stream = fs.createWriteStream(filePath)
 
-		fs.writeFile(filePath, Buffer.from(fileData, 'base64'), (err) => {
-			if (err) {
-				console.error(err)
-			} else {
-				console.log('File saved:', filePath)
+		stream.write(Buffer.from(fileData))
 
-				const fileType = mime.lookup(filePath) || 'application/octet-stream'
-
-				console.log('fileType', fileType)
-
-				const fileDataWithSender = {
-					fileName,
-					fileType,
-					downloadLink: `/uploads/${fileName}`,
-					nick, // Добавляем информацию о пользователе, отправившем файл
-				}
-
-				io.emit('file-uploaded', fileDataWithSender)
+		stream.on('finish', () => {
+			const fileDataWithSender = {
+				fileName,
+				fileType,
+				downloadLink: `/uploads/${fileName}`,
+				nick,
 			}
+
+			io.emit('file-uploaded', fileDataWithSender)
 		})
+
+		stream.on('error', (err) => {
+			console.error('Error in write stream:', err)
+		})
+
+		stream.end()
 	})
+
 	socket.on('disconnect', () => {
 		console.log('disconnected', socket.username)
 		users_arr = users_arr.filter((user) => user !== socket.username)
