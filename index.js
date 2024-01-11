@@ -69,11 +69,12 @@ io.on('connection', (socket) => {
 			message: data.mess,
 			time: `${hours}:${minutes}`,
 			nick: data.name,
+			room: data.room,
 		}
 		messageHistory.push(newMess)
 		io.sockets.emit('new message', newMess)
 	})
-	socket.on('file-upload', ({ fileData, fileType, fileName, nick }) => {
+	socket.on('file-upload', ({ fileData, fileType, fileName, nick, room }) => {
 		const filePath = path.join(uploadPath, fileName)
 		const stream = fs.createWriteStream(filePath)
 
@@ -85,6 +86,7 @@ io.on('connection', (socket) => {
 				fileType,
 				downloadLink: `/uploads/${fileName}`,
 				nick,
+				room,
 			}
 			fileHistory.push(fileDataWithSender)
 			io.emit('file-uploaded', fileDataWithSender)
