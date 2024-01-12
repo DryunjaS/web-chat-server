@@ -98,7 +98,10 @@ io.on('connection', (socket) => {
 
 		stream.end()
 	})
-
+	socket.on('chats new', (chats) => {
+		console.log('chats', chats)
+		io.sockets.emit('chats new', chats)
+	})
 	socket.on('disconnect', () => {
 		console.log('disconnected', socket.username)
 		users_arr = users_arr.filter((user) => user !== socket.username)
