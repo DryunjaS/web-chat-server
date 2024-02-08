@@ -6,10 +6,13 @@ const fs = require('fs')
 const path = require('path')
 const server = http.createServer(app)
 
+const IP_ADRESS = '192.168.35.151'
+const PORT = 8080
+
 const io = new Server(server, {
 	maxHttpBufferSize: 1e8,
 	cors: {
-		origin: 'http://localhost:3000',
+		origin: `${IP_ADRESS}:${PORT}`,
 		methods: ['GET', 'POST'],
 	},
 })
@@ -24,6 +27,11 @@ if (!fs.existsSync(uploadPath)) {
 	fs.mkdirSync(uploadPath)
 }
 
+app.use(express.static(path.resolve(__dirname, './build')))
+
+app.get('/', function (req, res) {
+	res.sendFile(path.resolve(__dirname, './build', 'index.html'))
+})
 app.use('/uploads', express.static(uploadPath)) // Serve uploaded files
 app.get('/uploads/:fileName', (req, res) => {
 	const fileName = req.params.fileName
@@ -109,6 +117,6 @@ io.on('connection', (socket) => {
 	})
 })
 
-server.listen(5000, () => {
-	console.log('Server run!')
+server.listen(PORT, IP_ADRESS, () => {
+	console.log(`Server is running on http://${IP_ADRESS}:${PORT}`)
 })
