@@ -1,7 +1,11 @@
 const express = require('express')
 const http = require('http')
 const { Server } = require('socket.io')
+const helmet = require('helmet') // Переместили импорт сюда
+
 const app = express()
+// app.use(helmet()) позже
+
 const fs = require('fs')
 const path = require('path')
 const server = http.createServer(app)
@@ -20,6 +24,7 @@ const io = new Server(server, {
 let users_arr = []
 let messageHistory = []
 let fileHistory = [] // Создаем массив для хранения истории файлов
+let chatsArr = ['Основной', 'Крутой', 'Ровный']
 
 const uploadPath = path.join(__dirname, 'uploads')
 
@@ -49,11 +54,13 @@ io.on('connection', (socket) => {
 
 	socket.emit('message history', messageHistory)
 	socket.emit('file-history', fileHistory)
+	socket.emit('chatsHistory', chatsArr)
 
 	socket.on('login', (data) => {
 		const found = users_arr.find(
 			(fio) => fio.toLowerCase() === data.toLowerCase()
 		)
+
 		if (!found) {
 			users_arr.push(data)
 			console.log('users_arr', users_arr)
@@ -67,6 +74,7 @@ io.on('connection', (socket) => {
 
 	socket.on('message', (data) => {
 		const currentDate = new Date()
+
 		function addLeadingZero(value) {
 			return value < 10 ? `0${value}` : value
 		}
@@ -108,7 +116,8 @@ io.on('connection', (socket) => {
 	})
 	socket.on('chats new', (chats) => {
 		console.log('chats', chats)
-		io.sockets.emit('chats new', chats)
+		chatsArr = chats
+		io.sockets.emit('chats new', chatsArr)
 	})
 	socket.on('disconnect', () => {
 		console.log('disconnected', socket.username)
