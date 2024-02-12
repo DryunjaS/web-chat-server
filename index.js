@@ -13,7 +13,7 @@ const server = http.createServer(app)
 // const IP_ADRESS = '192.168.35.151'
 const IP_ADRESS = '193.187.172.3'
 
-const PORT = 8080
+const PORT = 80
 
 const io = new Server(server, {
 	maxHttpBufferSize: 1e8,
