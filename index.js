@@ -2,10 +2,11 @@ require('dotenv').config()
 
 const express = require('express')
 const http = require('http')
-const https = require('https') // Подключаем модуль 'https'
-
+const https = require('https')
 const { Server } = require('socket.io')
-const helmet = require('helmet') // Переместили импорт сюда
+const helmet = require('helmet')
+const fs = require('fs')
+const path = require('path')
 
 const app = express()
 app.use(helmet())
@@ -29,26 +30,21 @@ const credentials = { key: privateKey, cert: certificate, ca: ca }
 const httpServer = http.createServer(app)
 const httpsServer = https.createServer(credentials, app)
 
-const fs = require('fs')
-const path = require('path')
-// const server = http.createServer(app)
-
-// const IP_ADRESS = '192.168.35.151'
-const IP_ADRESS = process.env.IP_ADRESS || '193.187.172.3'
+const IP_ADDRESS = process.env.IP_ADDRESS || '193.187.172.3'
 const HTTP_PORT = process.env.HTTP_PORT || 80
-const HTTPS_PORT = process.env.HTTP_PORT || HTTP_PORT
+const HTTPS_PORT = process.env.HTTPS_PORT || 443
 
-const io = new Server(server, {
+const io = new Server(httpsServer, {
 	maxHttpBufferSize: 1e8,
 	cors: {
-		origin: `*`,
+		origin: '*',
 		methods: ['GET', 'POST'],
 	},
 })
 
 let users_arr = []
 let messageHistory = []
-let fileHistory = [] // Создаем массив для хранения истории файлов
+let fileHistory = []
 let chatsArr = ['Основной', 'Крутой', 'Ровный']
 
 const uploadPath = path.join(__dirname, 'uploads')
@@ -59,10 +55,12 @@ if (!fs.existsSync(uploadPath)) {
 
 app.use(express.static(path.resolve(__dirname, './build')))
 
-app.get('/', function (req, res) {
+app.get('/', (req, res) => {
 	res.sendFile(path.resolve(__dirname, './build', 'index.html'))
 })
-app.use('/uploads', express.static(uploadPath)) // Serve uploaded files
+
+app.use('/uploads', express.static(uploadPath))
+
 app.get('/uploads/:fileName', (req, res) => {
 	const fileName = req.params.fileName
 	const filePath = path.join(uploadPath, fileName)
@@ -73,7 +71,6 @@ app.get('/uploads/:fileName', (req, res) => {
 		res.status(404).send('File not found')
 	}
 })
-
 io.on('connection', (socket) => {
 	console.log('connect')
 
@@ -150,15 +147,10 @@ io.on('connection', (socket) => {
 		io.sockets.emit('users_arr', { users_arr })
 	})
 })
-
-// server.listen(PORT, IP_ADRESS, () => {
-// 	console.log(`Server is running on http://${IP_ADRESS}:${PORT}`)
-// })
-// Запуск HTTP и HTTPS серверов
-httpServer.listen(HTTP_PORT, IP_ADRESS, () => {
-	console.log(`HTTP сервер запущен на http://${IP_ADRESS}:${HTTP_PORT}`)
+httpServer.listen(HTTP_PORT, IP_ADDRESS, () => {
+	console.log(`HTTP сервер запущен на http://${IP_ADDRESS}:${HTTP_PORT}`)
 })
 
-httpsServer.listen(HTTPS_PORT, IP_ADRESS, () => {
-	console.log(`HTTPS сервер запущен на https://${IP_ADRESS}:${HTTPS_PORT}`)
+httpsServer.listen(HTTPS_PORT, IP_ADDRESS, () => {
+	console.log(`HTTPS сервер запущен на https://${IP_ADDRESS}:${HTTPS_PORT}`)
 })
