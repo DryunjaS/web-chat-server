@@ -1,24 +1,47 @@
+require('dotenv').config()
+
 const express = require('express')
 const http = require('http')
+const https = require('https') // Подключаем модуль 'https'
+
 const { Server } = require('socket.io')
 const helmet = require('helmet') // Переместили импорт сюда
 
 const app = express()
-// app.use(helmet()) позже
+app.use(helmet())
+
+// Загрузка файлов SSL-сертификата
+const privateKey = fs.readFileSync(
+	'/etc/letsencrypt/live/chat304.ru/privkey.pem',
+	'utf8'
+)
+const certificate = fs.readFileSync(
+	'/etc/letsencrypt/live/chat304.ru/cert.pem',
+	'utf8'
+)
+const ca = fs.readFileSync(
+	'/etc/letsencrypt/live/chat304.ru/fullchain.pem',
+	'utf8'
+)
+
+const credentials = { key: privateKey, cert: certificate, ca: ca }
+
+const httpServer = http.createServer(app)
+const httpsServer = https.createServer(credentials, app)
 
 const fs = require('fs')
 const path = require('path')
-const server = http.createServer(app)
+// const server = http.createServer(app)
 
 // const IP_ADRESS = '192.168.35.151'
-const IP_ADRESS = '193.187.172.3'
-
-const PORT = 80
+const IP_ADRESS = process.env.IP_ADRESS || '193.187.172.3'
+const HTTP_PORT = process.env.HTTP_PORT || 80
+const HTTPS_PORT = process.env.HTTP_PORT || HTTP_PORT
 
 const io = new Server(server, {
 	maxHttpBufferSize: 1e8,
 	cors: {
-		origin: `${IP_ADRESS}:${PORT}`,
+		origin: `*`,
 		methods: ['GET', 'POST'],
 	},
 })
@@ -128,6 +151,14 @@ io.on('connection', (socket) => {
 	})
 })
 
-server.listen(PORT, IP_ADRESS, () => {
-	console.log(`Server is running on http://${IP_ADRESS}:${PORT}`)
+// server.listen(PORT, IP_ADRESS, () => {
+// 	console.log(`Server is running on http://${IP_ADRESS}:${PORT}`)
+// })
+// Запуск HTTP и HTTPS серверов
+httpServer.listen(HTTP_PORT, IP_ADRESS, () => {
+	console.log(`HTTP сервер запущен на http://${IP_ADRESS}:${HTTP_PORT}`)
+})
+
+httpsServer.listen(HTTPS_PORT, IP_ADRESS, () => {
+	console.log(`HTTPS сервер запущен на https://${IP_ADRESS}:${HTTPS_PORT}`)
 })
