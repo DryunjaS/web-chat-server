@@ -1,18 +1,14 @@
 const express = require('express')
 const http = require('http')
 const { Server } = require('socket.io')
-const helmet = require('helmet') // Переместили импорт сюда
 
 const app = express()
-// app.use(helmet()) позже
 
 const fs = require('fs')
 const path = require('path')
 const server = http.createServer(app)
 
-// const IP_ADRESS = '192.168.35.151'
 const IP_ADRESS = '193.187.172.3'
-
 const PORT = 80
 
 const io = new Server(server, {
