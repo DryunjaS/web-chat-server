@@ -2,24 +2,32 @@ const express = require('express')
 const http = require('http')
 const { Server } = require('socket.io')
 
+const jwt = require('jsonwebtoken')
+const bodyParser = require('body-parser')
+const secretKey = 'your-secret-key'
+
+const MongoClient = require('mongodb').MongoClient
+const assert = require('assert')
+
 const app = express()
 
 const fs = require('fs')
 const path = require('path')
 const server = http.createServer(app)
 
-const IP_ADRESS = '193.187.172.3'
-const PORT = 80
+const IP_ADRESS = 'localhost'
+const PORT = 5000
 
 const io = new Server(server, {
 	maxHttpBufferSize: 1e8,
 	cors: {
-		origin: `${IP_ADRESS}:${PORT}`,
+		origin: `*`,
 		methods: ['GET', 'POST'],
 	},
 })
 
-let users_arr = []
+let userArrServer = []
+let userArrClient = []
 let messageHistory = []
 let fileHistory = [] // Создаем массив для хранения истории файлов
 let chatsArr = ['Основной', 'Крутой', 'Ровный']
@@ -30,11 +38,11 @@ if (!fs.existsSync(uploadPath)) {
 	fs.mkdirSync(uploadPath)
 }
 
-app.use(express.static(path.resolve(__dirname, './build')))
+// app.use(express.static(path.resolve(__dirname, './build')))
 
-app.get('/', function (req, res) {
-	res.sendFile(path.resolve(__dirname, './build', 'index.html'))
-})
+// app.get('/', function (req, res) {
+// 	res.sendFile(path.resolve(__dirname, './build', 'index.html'))
+// })
 app.use('/uploads', express.static(uploadPath)) // Serve uploaded files
 app.get('/uploads/:fileName', (req, res) => {
 	const fileName = req.params.fileName
@@ -53,20 +61,50 @@ io.on('connection', (socket) => {
 	socket.emit('message history', messageHistory)
 	socket.emit('file-history', fileHistory)
 	socket.emit('chatsHistory', chatsArr)
-
-	socket.on('login', (data) => {
-		const found = users_arr.find(
-			(fio) => fio.toLowerCase() === data.toLowerCase()
+	socket.emit(
+		'listRegUsers',
+		userArrServer.map((user) => user.name)
+	)
+	const regUser = (user) => {
+		const newUserr = {
+			name: user.name,
+			pass: user.pass,
+			token: jwt.sign({ username: user.name }, secretKey, {
+				expiresIn: '1h',
+			}),
+		}
+		userArrServer.push(newUserr)
+		console.log('userArrServer', userArrServer)
+		socket.username = user.name
+		io.sockets.emit('login', { status: 'OK', name: user.name })
+		userArrClient.push(user.name)
+		io.sockets.emit('users_arr', userArrClient)
+		io.sockets.emit(
+			'listRegUsers',
+			userArrServer.map((user) => user.name)
 		)
-
+	}
+	const loginUser = (user) => {
+		socket.username = user.name
+		userArrClient.push(user.name)
+		io.sockets.emit('users_arr', userArrClient)
+	}
+	socket.on('login', (data) => {
+		console.log('data auth', data)
+		if (data.SessionStore) {
+			loginUser(data)
+		}
+		const found = userArrServer.find(
+			(user) => user.name.toLowerCase() === data.name.toLowerCase()
+		)
 		if (!found) {
-			users_arr.push(data)
-			console.log('users_arr', users_arr)
-			socket.username = data
-			io.sockets.emit('login', { status: 'OK', name: data })
-			io.sockets.emit('users_arr', { users_arr })
+			regUser(data)
 		} else {
-			io.sockets.emit('login', { status: 'FAILED' })
+			if (data.pass === found.pass) {
+				loginUser(data)
+			} else {
+				io.sockets.emit('login', { status: 'FAILED' })
+			}
 		}
 	})
 
@@ -98,7 +136,7 @@ io.on('connection', (socket) => {
 			const fileDataWithSender = {
 				fileName,
 				fileType,
-				downloadLink: `/uploads/${fileName}`,
+				downloadLink: `uploads/${fileName}`,
 				nick,
 				room,
 			}
@@ -119,8 +157,8 @@ io.on('connection', (socket) => {
 	})
 	socket.on('disconnect', () => {
 		console.log('disconnected', socket.username)
-		users_arr = users_arr.filter((user) => user !== socket.username)
-		io.sockets.emit('users_arr', { users_arr })
+		userArrClient = userArrClient.filter((user) => user !== socket.username)
+		io.sockets.emit('users_arr', userArrClient)
 	})
 })
 
